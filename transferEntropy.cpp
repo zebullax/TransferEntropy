@@ -1,13 +1,9 @@
 #include <cmath>
-#include <iostream>
+#include <sstream>
 #include <assert.h>
-#include "logger.hpp"
 #include "transferEntropy.hpp"
 
 using namespace std;
-/*
- * ifdef around logging is to prevent perf grieving on useless string building
- * */
 
 /*
   This will build a vector space from a time series, using time delay technique
@@ -22,7 +18,7 @@ using namespace std;
   0 1 2 3
   2 3 4 5
   3 4 5 6
-  4 6 7 8
+  4 6 7 8       
 */
 double** PhaseSpaceReconstruction(double* timeSeries,int timeSeriesSize,int embeddingDimension,int timeDelay)
 {
@@ -42,18 +38,7 @@ double** PhaseSpaceReconstruction(double* timeSeries,int timeSeriesSize,int embe
     }
     
 #ifdef _DEBUG
-    Logger* log = Logger::GetDebugLogger();
-    string msg;
-    msg = "PhaseSpaceReconstruction: Initial series with length ";
-    msg += timeSeriesSize;
-    msg+="  has been reconstructed with dimension ";
-    msg+= embeddingDimension;
-    msg+=" and now has ";
-    msg+=nbElementsInResultVector;
-    msg+=" elements.";
-
-    log->Debug(msg);
-    log->Release();
+    cout <<GetCurrentTime()<< " PhaseSpaceReconstruction: Initial series with length " << timeSeriesSize <<" has been reconstructed with dimension " << embeddingDimension<< " and has now " << nbElementsInResultVector <<" elements"<<endl;
 #endif
     
     return result;
@@ -61,35 +46,29 @@ double** PhaseSpaceReconstruction(double* timeSeries,int timeSeriesSize,int embe
 
 double EuclideanDistance (double* X, double* Y,int dim)
 {
-    Logger* log = Logger::GetDebugLogger();
-    log->Debug("EuclideanDistance [enter]");
+#ifdef _DEBUG
+    cout<<GetCurrentTime()<<"EuclideanDistance [enter]"<<endl;
+#endif
+    
     double tmp=0;
     for (int i=0;i<dim;++i)
     {
         
 #ifdef _DEBUG
-        string msgToLog;
-        
-        msgToLog += "X_i";
-        msgToLog += X[i];
-        msgToLog += "Y_i";
-        msgToLog += Y[i];
-        log->Debug(msgToLog);
+        ostringstream msgToLog;        
+        msgToLog << GetCurrentTime()<<"X_i"<< X[i]<< "Y_i" << Y[i];
+        cout<<msgToLog.str()<<endl;
 
 #endif        
         tmp+=pow(X[i]-Y[i],2);
     }
     
 #ifdef _DEBUG
-    string msgToLog;    
-    msgToLog = "Distance = Sqrt(";
-    msgToLog+=tmp;
-    msgToLog +=")";
-    log->Debug(msgToLog);
+    ostringstream msg;    
+    msg << GetCurrentTime()<<"Distance = Sqrt("<< tmp<<")";
+    cout<<msg.str()<<endl;
+    cout<<GetCurrentTime()<<"EuclideanDistance [exit]"<<endl;
 #endif
-    
-    log->Debug("EuclideanDistance [exit]");
-    log->Release();
     
     return sqrt(tmp);  
 }
@@ -116,8 +95,10 @@ double ProbaEstimation(double** X, double** Y,int length, int n, int dimension,D
 {
     double proba = 0;
     double* distances = new double[3];
-    Logger* log = Logger::GetDebugLogger();
-    log->Debug("ProbaEstimation [ENTER]");
+
+#ifdef _DEBUG
+    cout<<GetCurrentTime()<<"ProbaEstimation [ENTER]"<<endl;
+#endif
     
     for (int i=0;i<length-1;++i)
     {
@@ -129,16 +110,9 @@ double ProbaEstimation(double** X, double** Y,int length, int n, int dimension,D
             
 #ifdef _DEBUG
                 //May be replaced by StringStream
-            string msgToLog;
-            
-            msgToLog = "ProbaEstimation Distances:";
-            msgToLog += distances[0];
-            msgToLog += " , ";
-            msgToLog += distances[1];
-            msgToLog += " , ";
-            msgToLog += distances[2];
-            
-            log->Debug(msgToLog);
+            ostringstream msg;            
+            msg <<GetCurrentTime()<<"ProbaEstimation Distances:" << distances[0] <<  " , " << distances[1]<< " , " <<distances[2];
+            cout<<msg.str()<<endl;
 #endif
             proba+=norm(distances,3,threshold);
         }
@@ -147,37 +121,29 @@ double ProbaEstimation(double** X, double** Y,int length, int n, int dimension,D
     proba = proba/(double(length)-1);
     assert (proba>=0);
     assert (proba<=1);
-
-    log->Debug("ProbaEstimation [EXIT]");
-    log->Release();
-
+#ifdef _DEBUG
+    cout<<GetCurrentTime()<<"ProbaEstimation [EXIT]"<<endl;
+#endif
     return proba;
 }
 
 double TransferEntropy(double** X, double** Y, int length,int dimension,double threshold)
 {
     double result =0;
-    Logger* log = Logger::GetDebugLogger();    
         
     for(int i=0;i<length-1;++i)
     {
         double proba = ProbaEstimation(X,Y,length,i,dimension,EuclideanDistance,MaxNorm,threshold);
         result+=proba;
-        cout <<length<<endl;
         
 #ifdef _DEBUG
-        string msg;
-        msg = "Transfer entropy, proba at step : ";
-        msg+= i;
-        msg+=proba;
-        msg+= " current transfer entropy :";
-        msg+=result;
-        log->Debug(msg);
-        
+        ostringstream msg;
+        msg << GetCurrentTime()<<"Transfer entropy, proba at step "<<i<<" : "<< proba<< " current transfer entropy :" <<result;
+        cout<<msg.str()<<endl;
 #endif
         
     }
-    log->Release();
+
     return result;
 }
 

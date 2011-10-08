@@ -1,5 +1,4 @@
 #include "transferEntropy.hpp"
-#include "logger.hpp"
 #include <exception>
 #include <string>
 #include <iostream>
@@ -163,7 +162,6 @@ void Test()
 {
         //TestPhaseSpace();
     TestTransferEntropy();
-    
 }
 
 int main(int argc, char**argv)
