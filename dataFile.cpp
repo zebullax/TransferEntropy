@@ -31,10 +31,9 @@ double* ReadFileOfDoubles(string filename,const char *delimiter)
     {
 		vec.push_back(atof(resultOfTok));
 		resultOfTok = strtok(line,delimiter);
-	}
-    
+    }    
     //Convert it to an array
-	return &vec[0];
+    return &vec[0];
 }
 
 #endif
