@@ -39,6 +39,7 @@ double** PhaseSpaceReconstruction(double* timeSeries,int timeSeriesSize,int embe
     
 #ifdef _DEBUG
     cout <<GetCurrentTime()<< " PhaseSpaceReconstruction: Initial series with length " << timeSeriesSize <<" has been reconstructed with dimension " << embeddingDimension<< " and has now " << nbElementsInResultVector <<" elements"<<endl;
+    OutputVectorSeriesToStream(cout,result,nbElementsInResultVector,embeddingDimension);    
 #endif
     
     return result;
@@ -46,31 +47,31 @@ double** PhaseSpaceReconstruction(double* timeSeries,int timeSeriesSize,int embe
 
 double EuclideanDistance (double* X, double* Y,int dim)
 {
-#ifdef _DEBUG
-    cout<<GetCurrentTime()<<"EuclideanDistance [enter]"<<endl;
-#endif
-    
     double tmp=0;
-    for (int i=0;i<dim;++i)
-    {
-        
-#ifdef _DEBUG
-        ostringstream msgToLog;        
-        msgToLog << GetCurrentTime()<<"X_i"<< X[i]<< "Y_i" << Y[i];
-        cout<<msgToLog.str()<<endl;
+    double distance = 0;
 
+#ifdef _DEBUG
+        ostringstream msgToLog;
+        msgToLog << GetCurrentTime();
+        msgToLog<<"EuclideanDistance between those 2 vectors";        
+        cout<<msgToLog.str()<<endl;
+        cout<<GetCurrentTime();
+        OutputVectorToStream(cout,X,dim);
+        cout<<GetCurrentTime();
+        OutputVectorToStream(cout,Y,dim);
 #endif        
+    
+    for (int i=0;i<dim;++i)
         tmp+=pow(X[i]-Y[i],2);
-    }
+    distance = sqrt(tmp);
     
 #ifdef _DEBUG
     ostringstream msg;    
-    msg << GetCurrentTime()<<"Distance = Sqrt("<< tmp<<")";
+    msg << GetCurrentTime()<<"Distance = "<<distance;
     cout<<msg.str()<<endl;
-    cout<<GetCurrentTime()<<"EuclideanDistance [exit]"<<endl;
 #endif
     
-    return sqrt(tmp);  
+    return distance;  
 }
 
 bool MaxNorm(double* dist,int n, double threshold)
@@ -81,25 +82,26 @@ bool MaxNorm(double* dist,int n, double threshold)
       if (dist[i]>max)
 	max=dist[i];
     }
-  
+#ifdef _DEBUG
+  ostringstream msg;    
+  if (max<threshold)
+      msg<<"Found an equal point, max value was "<<max;
+  else
+      msg<<"max value "<< max<<" was over the threshold "<<threshold;
+  cout<<msg<<endl;
+#endif    
   return (max <= threshold);
 }
 
 /*
-Eq: 4.5
-
-compute P(xn+1,xn,yn)
-length and dimension are supposed to be the same for X and Y.
-*/
-double ProbaEstimation(double** X, double** Y,int length, int n, int dimension,Distance distance,Norm norm,double threshold)
+ *TODO
+ *Double and Triple proba estimation can be factorized
+ **/
+double TripleProbaEstimation(double** X, double** Y,int length, int n, int dimension,Distance distance,Norm norm,double threshold)
 {
     double proba = 0;
     double* distances = new double[3];
 
-#ifdef _DEBUG
-    cout<<GetCurrentTime()<<"ProbaEstimation [ENTER]"<<endl;
-#endif
-    
     for (int i=0;i<length-1;++i)
     {
         if (i!=n)
@@ -109,9 +111,8 @@ double ProbaEstimation(double** X, double** Y,int length, int n, int dimension,D
             distances[2] = distance(Y[n],Y[i],dimension);
             
 #ifdef _DEBUG
-                //May be replaced by StringStream
             ostringstream msg;            
-            msg <<GetCurrentTime()<<"ProbaEstimation Distances:" << distances[0] <<  " , " << distances[1]<< " , " <<distances[2];
+            msg <<GetCurrentTime()<<"TripleProbaEstimation - Distances(Xi+1,Xi,Yi) :" << distances[0] <<  " , " << distances[1]<< " , " <<distances[2];
             cout<<msg.str()<<endl;
 #endif
             proba+=norm(distances,3,threshold);
@@ -121,40 +122,55 @@ double ProbaEstimation(double** X, double** Y,int length, int n, int dimension,D
     proba = proba/(double(length)-1);
     assert (proba>=0);
     assert (proba<=1);
-#ifdef _DEBUG
-    cout<<GetCurrentTime()<<"ProbaEstimation [EXIT]"<<endl;
-#endif
+
+    delete distances;    
     return proba;
 }
 
+double DoubleProbaEstimation(double** X, double** Y,int length, int n, int dimension,Distance distance,Norm norm,double threshold)
+{
+    double proba = 0;
+    double* distances = new double[2];
+    
+    for (int i=0;i<length-1;++i)
+    {
+        if (i!=n)
+        {
+            distances[0] = distance(X[n+1],X[i+1],dimension);
+            distances[1] = distance(X[n],X[i],dimension);
+            
+#ifdef _DEBUG
+            ostringstream msg;            
+            msg <<GetCurrentTime()<<"DoubleProbaEstimation - Distances(Xi+1,Xi) :" << distances[0] <<  " , " << distances[1];
+            cout<<msg.str()<<endl;
+#endif
+            proba+=norm(distances,2,threshold);
+        }        
+    }
+    proba = proba/(double(length)-1);
+    assert (proba>=0);
+    assert (proba<=1);
+
+    delete distances;    
+    return proba;
+}
+
+// TODO : Phase Space Reconstruction should be embedded in here... So the cleanup should also occur here.
 double TransferEntropy(double** X, double** Y, int length,int dimension,double threshold)
 {
     double result =0;
-        
     for(int i=0;i<length-1;++i)
     {
-        double proba = ProbaEstimation(X,Y,length,i,dimension,EuclideanDistance,MaxNorm,threshold);
-        result+=proba;
+        double tripleProba = TripleProbaEstimation(X,Y,length,i,dimension,EuclideanDistance,MaxNorm,threshold);
+        double doubleProba = DoubleProbaEstimation(X,Y,length,i,dimension,EuclideanDistance,MaxNorm,threshold);
+        result+=tripleProba*log(tripleProba/doubleProba);        
         
 #ifdef _DEBUG
         ostringstream msg;
-        msg << GetCurrentTime()<<"Transfer entropy, proba at step "<<i<<" : "<< proba<< " current transfer entropy :" <<result;
+        msg << GetCurrentTime()<<"Transfer entropy, step "<<i<<" : triple proba="<< tripleProba<< " double proba="<<doubleProba<<" , current transfer entropy=" <<result;
         cout<<msg.str()<<endl;
 #endif
         
     }
-
     return result;
-}
-
-void OutputVectorToStream(ostream& target,double** X, int length,int dimension)
-{
-    for (int i=0 ; i<length ; ++i)
-    {
-        for(int j=0;j<dimension;++j)
-        {
-            target<<X[i][j]<<";";
-        }
-	target<<endl;
-    }
 }
